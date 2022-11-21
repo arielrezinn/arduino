@@ -3,112 +3,61 @@
 #include "Pitches.h"
 #include "Colors.h"
 
-// Global Constants
-#define MOUSE_SPEED 5 // the speed of each mouse movement, lower is faster
-#define MOUSE_MOVE_INTERVAL 3000 // how often to move the mouse (in ms)
+// Button Global Variables
+bool leftButtonIsDown;
+bool rightButtonWasDownPreviousLoop;
+bool rightButtonIsDown;
+bool rightButtonIsClicked;
 
-// Light and Color Global Variables
-int lightIndex = 0;
-int colors[] = {
-  RED, ORANGE, YELLOW, YELLOW_GREEN, GREEN, GREEN_BLUE, BLUE, VIOLET, PURPLE, PINK
-};
+// Light, Color, and Sound Global Variables
+int lightIteration = 0;
+int customColors[] = {RED, ORANGE, YELLOW, YELLOW_GREEN, GREEN, GREEN_BLUE, BLUE, VIOLET, PURPLE, PINK};
+int scale[] = {NOTE_C4, NOTE_D4, NOTE_E4, NOTE_G4, NOTE_A4};
+int frequency = scale[random(5)];
+int duration = 15;
 
-// Sound Global Variables
-int noteIndex = 0;
-int noteCount = 7;
-int scale[] = {
-  NOTE_C4, NOTE_D4, NOTE_E4, NOTE_G4, NOTE_A4
-};
-
-enum lightState {
-  ON,
-  OFF
-} lightState = OFF;
-
-enum buttonPress {
-  LEFT,
-  RIGHT,
-  NO
-} buttonPress = NO;
-
-void checkForButtonPress() {
-  bool leftFirst = CircuitPlayground.leftButton();
-  bool rightFirst = CircuitPlayground.rightButton();
-  delay(10);
-  bool leftSecond = CircuitPlayground.leftButton();
-  bool rightSecond = CircuitPlayground.rightButton();
-
-  if (leftFirst && !leftSecond) {
-    buttonPress = LEFT;
-    return;
-  }
-  if (rightFirst && !rightSecond) {
-    buttonPress = RIGHT;
-    return;
-  }
-  
-  buttonPress = NO;
-}
-
-void playSound() {
-  int duration = 75;
-  CircuitPlayground.playTone(scale[random(5)], duration);
-  
-//  CircuitPlayground.playTone(523, 200);  // 523hz = C4
-//  CircuitPlayground.playTone(659, 100);  // 659hz = E5
-//  CircuitPlayground.playTone(698, 400);  // 698hz = F5
-}
-
-// This turns all lights on or off
-void lightSwitch() {
-  switch (lightState) {
-    case OFF:
-      for (int i = 0; i < 10; i++) {
-        CircuitPlayground.setPixelColor(i, 0x279CD4);
-      }
-      lightState = ON;
-      break;
-    case ON:
-      CircuitPlayground.clearPixels();
-      lightState = OFF;
-      break;
-  }
+void checkButtonStatus() {
+  leftButtonIsDown = CircuitPlayground.leftButton();
+  rightButtonWasDownPreviousLoop = rightButtonIsDown;
+  rightButtonIsDown = CircuitPlayground.rightButton();
+  rightButtonIsClicked = !rightButtonIsDown && rightButtonWasDownPreviousLoop;
 }
 
 // This turns on a light each time it's called
 void lightIncrement() {
-  if (lightIndex > 9) {
-    CircuitPlayground.clearPixels();
-    lightIndex = 0;
-    return;
+  if (lightIteration > 19) { lightIteration = 0; }
+  int lightNum;
+  int color;
+  
+  if (lightIteration > 9) {
+    lightNum = lightIteration - 10;
+    color = OFF;
+  } else {
+    lightNum = lightIteration;
+    // color = customColors[lightNum]; // display a custom array of colors
+    color = CircuitPlayground.colorWheel((lightNum * 256 / 10) & 255); // display the rainbow
   }
-  // Uncomment this to display a custom array of collors
-  //CircuitPlayground.setPixelColor(lightIndex, colors[lightIndex]);
-  
-  // Uncomment this to display the rainbow
-  int color = CircuitPlayground.colorWheel((lightIndex * 256 / 10) & 255);
-  CircuitPlayground.setPixelColor(lightIndex, color);
-  
-  lightIndex++;
+  CircuitPlayground.setPixelColor(lightNum, color);
+  lightIteration++;
 }
 
 // This moves the mouse
 void wiggleAndJiggle() {
-  int distance = random(10, 800);
+  int distance = random(10, 50);
   int x = random(3) - 1;
   int y = random(3) - 1;
+  int mouseSpeed = 5; // the speed of each mouse movement, lower is faster
+  int mouseMoveInterval = 3000; // how often to move the mouse (in ms)
 
   for (int i = 0; i < distance; i++) {
     Mouse.move(x, y, 0);
-    delay(MOUSE_SPEED);
+    delay(mouseSpeed);
   }
-  delay(MOUSE_MOVE_INTERVAL);
+  delay(mouseMoveInterval);
 }
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println("This is the setup function!");
-  
+  Serial.begin(115200);  
   CircuitPlayground.begin();
   Mouse.begin();
   randomSeed(analogRead(2));
@@ -117,22 +66,20 @@ void setup() {
 void loop() {
   // If the slide switch is on the left...
   while (CircuitPlayground.slideSwitch()) {
-    CircuitPlayground.clearPixels(); // Clear the neopixels
+    CircuitPlayground.clearPixels();
     CircuitPlayground.redLED(HIGH); // Turn on the red led light
     wiggleAndJiggle(); // move the mouse
   }
   CircuitPlayground.redLED(LOW); // Turn off the red led light
-  
-  // If the slide switch is on the right and a button is pressed...
-  checkForButtonPress();
-  switch (buttonPress) {
-    case NO:
-      break;
-    case LEFT:
-      playSound();
-      break;
-    case RIGHT:
-      lightIncrement();
-      break;
+
+  // If the slide switch is on the right...
+  checkButtonStatus();
+  if (leftButtonIsDown) { 
+    CircuitPlayground.playTone(frequency, duration);
+  } else { 
+    frequency = scale[random(5)]; // update the frequency played each press
+  }
+  if (rightButtonIsClicked) {
+    lightIncrement();
   }
 }

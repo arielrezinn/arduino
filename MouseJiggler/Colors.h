@@ -12,3 +12,5 @@
 #define VIOLET        0x4700FF
 #define PURPLE        0xB800FF
 #define PINK          0xFF0027
+#define OFF     0x000000
+
